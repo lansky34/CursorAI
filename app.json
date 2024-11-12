@@ -1,0 +1,105 @@
+{
+  "name": "review-aggregator",
+  "description": "Business Review Analytics Platform",
+  "keywords": [
+    "reviews",
+    "analytics",
+    "sentiment-analysis"
+  ],
+  "website": "https://your-app-url.herokuapp.com",
+  "repository": "https://github.com/username/review-aggregator",
+  "success_url": "/",
+  "scripts": {
+    "postdeploy": "npm run db:migrate"
+  },
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    },
+    "NPM_CONFIG_PRODUCTION": {
+      "description": "Install devDependencies",
+      "value": "false"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-1x",
+      "autoscaling": {
+        "enabled": true,
+        "min_quantity": 1,
+        "max_quantity": 5,
+        "notifications": true,
+        "metrics": [
+          {
+            "name": "rps",
+            "target": 150,
+            "operation": "avg",
+            "period": "1m"
+          },
+          {
+            "name": "memory_percentage",
+            "target": 85,
+            "operation": "avg",
+            "period": "5m"
+          },
+          {
+            "name": "response_time_p95",
+            "target": 1000,
+            "operation": "max",
+            "period": "5m"
+          }
+        ]
+      }
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "standard-1x",
+      "autoscaling": {
+        "enabled": true,
+        "min_quantity": 1,
+        "max_quantity": 3,
+        "notifications": true,
+        "metrics": [
+          {
+            "name": "queue_depth",
+            "target": 100,
+            "operation": "avg",
+            "period": "1m"
+          }
+        ]
+      }
+    }
+  },
+  "addons": [
+    "heroku-postgresql:hobby-dev",
+    "papertrail:choklad",
+    "newrelic:wayne",
+    "scheduler:standard"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "environments": {
+    "review": {
+      "addons": [
+        "heroku-postgresql:hobby-dev"
+      ],
+      "scripts": {
+        "postdeploy": "npm run db:migrate"
+      }
+    },
+    "staging": {
+      "scripts": {
+        "postdeploy": "npm run db:migrate"
+      },
+      "env": {
+        "NPM_CONFIG_PRODUCTION": "false",
+        "NODE_ENV": "staging"
+      }
+    }
+  }
+} 

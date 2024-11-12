@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Review Analytics</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <!-- Chart.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Add these styles inline for the filter panel */
+        .filter-panel {
+            background: white;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .filter-panel h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+        
+        .badge-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .badge-filter {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 16px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        
+        .badge-filter.active {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+        
+        .filter-count {
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            margin-left: 8px;
+        }
+
+        /* Search Container Styles */
+        .search-container {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: white;
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        .search-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .search-suggestion {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .search-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .recent-searches {
+            padding: 15px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+
+        .recent-searches h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .recent-search {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .recent-search:last-child {
+            border-bottom: none;
+        }
+
+        .recent-search .search-term {
+            font-size: 16px;
+            color: #2c3e50;
+        }
+
+        .recent-search .search-date {
+            font-size: 14px;
+            color: #999;
+        }
+
+        /* Explore Nearby Styles */
+        .explore-nearby {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: white;
+        }
+
+        .explore-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .explore-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .explore-button:hover {
+            background: #2980b9;
+        }
+
+        .explore-button svg {
+            fill: currentColor;
+        }
+
+        .nearby-results {
+            margin-top: 10px;
+        }
+
+        .nearby-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .nearby-item:hover {
+            background: #f8f9fa;
+        }
+
+        .nearby-info {
+            flex: 1;
+        }
+
+        .nearby-distance {
+            font-size: 12px;
+            color: #7f8c8d;
+            white-space: nowrap;
+        }
+
+        .nearby-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+            color: #999;
+        }
+
+        /* Comparison Tool Styles */
+        .comparison-tool {
+            position: fixed;
+            bottom: 0;
+            left: 300px; /* Width of sidebar */
+            right: 0;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .comparison-tool.hidden {
+            transform: translateY(100%);
+        }
+
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comparison-content {
+            padding: 15px;
+        }
+
+        .selected-businesses {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .selected-business {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        /* Saved Places Styles */
+        .saved-places {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: white;
+        }
+
+        .saved-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .create-list-button {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .create-list-button svg {
+            fill: currentColor;
+        }
+
+        .saved-lists {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .saved-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .saved-list:hover {
+            background: #e8f4fd;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .list-name {
+            font-weight: 
+    </style>
+</head>
+<body>
+    <!-- Add this right after the opening <body> tag -->
+    <div id="onboarding-overlay" class="onboarding-overlay hidden">
+        <div class="onboarding-modal">
+            <h2>Welcome to Business Review Analytics!</h2>
+            <p>Let's take a quick tour of the main features.</p>
+            <button id="startTour" class="onboarding-button">Start Tour</button>
+            <label class="skip-option">
+                <input type="checkbox" id="skipFuture">
+                Don't show this again
+            </label>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Add Filter Panel before chart container -->
+            <div class="filter-panel">
+                <div class="filter-header">
+                    <h3>Quick Filters</h3>
+                    <button id="clearFilters" class="clear-filters-button">
+                        Clear All
+                    </button>
+                </div>
+                
+                <div class="filter-categories">
+                    <div class="filter-category">
+                        <h4>Popular</h4>
+                        <div class="filter-tags" data-category="popular">
+                            <button class="filter-tag" data-filter="top-rated">
+                                <span class="tag-icon">⭐</span>
+                                Top Rated
+                            </button>
+                            <button class="filter-tag" data-filter="trending">
+                                <span class="tag-icon">📈</span>
+                                Trending
+                            </button>
+                            <button class="filter-tag" data-filter="new">
+                                <span class="tag-icon">🆕</span>
+                                New Places
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-category">
+                        <h4>Features</h4>
+                        <div class="filter-tags" data-category="features">
+                            <button class="filter-tag" data-filter="budget-friendly">
+                                <span class="tag-icon">💰</span>
+                                Budget-Friendly
+                            </button>
+                            <button class="filter-tag" data-filter="family-friendly">
+                                <span class="tag-icon">👨‍👩‍👧‍👦</span>
+                                Family-Friendly
+                            </button>
+                            <button class="filter-tag" data-filter="outdoor-seating">
+                                <span class="tag-icon">🌳</span>
+                                Outdoor Seating
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-category">
+                        <h4>Cuisine</h4>
+                        <div class="filter-tags" data-category="cuisine">
+                            <button class="filter-tag" data-filter="italian">
+                                <span class="tag-icon">🍝</span>
+                                Italian
+                            </button>
+                            <button class="filter-tag" data-filter="asian">
+                                <span class="tag-icon">🍜</span>
+                                Asian
+                            </button>
+                            <button class="filter-tag" data-filter="vegetarian">
+                                <span class="tag-icon">🥗</span>
+                                Vegetarian
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="active-filters" id="activeFilters">
+                    <!-- Active filters will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Add this right after the filter panel in the sidebar -->
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <input type="text" 
+                           id="searchInput" 
+                           class="search-input" 
+                           placeholder="Search businesses, categories, or features..."
+                           autocomplete="off">
+                    <button class="search-button">
+                        <svg viewBox="0 0 24 24" width="18" height="18">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="searchSuggestions" class="search-suggestions hidden">
+                    <!-- Suggestions will be populated here -->
+                </div>
+                <div id="recentSearches" class="recent-searches">
+                    <!-- Recent searches will be populated here -->
+                </div>
+            </div>
+
+            <!-- Add this after the search container in the sidebar -->
+            <div class="explore-nearby">
+                <div class="explore-header">
+                    <h3>Explore Nearby</h3>
+                    <button id="exploreNearbyBtn" class="explore-button">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                        </svg>
+                        Find Nearby Places
+                    </button>
+                </div>
+                <div id="nearbyResults" class="nearby-results hidden">
+                    <!-- Results will be populated here -->
+                </div>
+                <div class="explore-preferences">
+                    <button id="preferencesBtn" class="preferences-button">
+                        Customize Preferences
+                    </button>
+                </div>
+            </div>
+
+            <div class="insights-dashboard">
+                <h3>AI Insights</h3>
+                <div class="insights-container">
+                    <div class="insight-card trending">
+                        <h4>Trending Categories</h4>
+                        <div id="trendingCategories" class="insight-content">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-card recommendations">
+                        <h4>Personalized Recommendations</h4>
+                        <div id="personalRecommendations" class="insight-content">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+
+                    <div class="insight-card patterns">
+                        <h4>Emerging Patterns</h4>
+                        <div id="emergingPatterns" class="insight-content">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="insights-footer">
+                    <small>Last updated: <span id="lastUpdated">Loading...</span></small>
+                    <button id="refreshInsights" class="refresh-button">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Sentiment Analysis</h2>
+                <canvas id="aspectChart"></canvas>
+            </div>
+            
+            <div class="notification-area" id="notificationArea">
+                <!-- Notifications will be inserted here -->
+            </div>
+
+            <!-- Add this after the aspect chart container in the sidebar -->
+            <div class="sentiment-trends">
+                <div class="trends-header">
+                    <h3>Sentiment Trends</h3>
+                    <div class="trends-controls">
+                        <select id="trendTimeRange">
+                            <option value="7">Last 7 days</option>
+                            <option value="30">Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                        <button id="compareTrends" class="compare-trends-button" disabled>
+                            Compare Selected
+                        </button>
+                    </div>
+                </div>
+                <canvas id="sentimentTrendChart"></canvas>
+                <div id="trendLegend" class="trend-legend"></div>
+            </div>
+
+            <!-- Add this after the sentiment trends section in the sidebar -->
+            <div class="review-highlights">
+                <div class="highlights-header">
+                    <h3>Review Highlights</h3>
+                    <span class="review-count" id="totalReviewCount">0 reviews</span>
+                </div>
+                
+                <div class="highlights-content">
+                    <div class="key-features">
+                        <h4>Most Mentioned Features</h4>
+                        <div id="featureCloud" class="feature-cloud">
+                            <!-- Feature tags will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="pros-cons">
+                        <div class="pros">
+                            <h4>
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                </svg>
+                                Pros
+                            </h4>
+                            <ul id="prosList">
+                                <!-- Pros will be populated here -->
+                            </ul>
+                        </div>
+                        
+                        <div class="cons">
+                            <h4>
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+                                </svg>
+                                Cons
+                            </h4>
+                            <ul id="consList">
+                                <!-- Cons will be populated here -->
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="common-phrases">
+                        <h4>Common Phrases</h4>
+                        <div id="phraseList" class="phrase-list">
+                            <!-- Common phrases will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div id="map"></div>
+            
+            <!-- Floating Controls -->
+            <div class="map-controls">
+                <div class="layer-control">
+                    <label>
+                        <input type="checkbox" id="markers-toggle" checked>
+                        Show Markers
+                    </label>
+                    <label>
+                        <input type="checkbox" id="heatmap-toggle" checked>
+                        Show Heatmap
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+    </div>
+
+    <!-- Add this before the closing </body> tag -->
+    <div id="tooltip" class="tooltip hidden">
+        <div class="tooltip-content">
+            <p id="tooltip-text"></p>
+            <div class="tooltip-buttons">
+                <button id="prevStep" class="tooltip-button">Previous</button>
+                <span id="stepIndicator"></span>
+                <button id="nextStep" class="tooltip-button">Next</button>
+            </div>
+        </div>
+        <div class="tooltip-arrow"></div>
+    </div>
+
+    <!-- Add this modal markup before the closing body tag -->
+    <div id="preferencesModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Your Preferences</h3>
+            <div class="preferences-form">
+                <div class="preference-section">
+                    <h4>Categories</h4>
+                    <div id="categoryPreferences" class="preference-options">
+                        <!-- Categories will be populated here -->
+                    </div>
+                </div>
+                <div class="preference-section">
+                    <h4>Features</h4>
+                    <div id="featurePreferences" class="preference-options">
+                        <!-- Features will be populated here -->
+                    </div>
+                </div>
+                <div class="preference-section">
+                    <h4>Search Radius</h4>
+                    <input type="range" id="radiusSlider" min="500" max="5000" step="500" value="1000">
+                    <span id="radiusValue">1 km</span>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="savePreferences" class="primary-button">Save Preferences</button>
+                <button id="cancelPreferences" class="secondary-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this right before the closing </div> of the sidebar -->
+    <div id="comparisonTool" class="comparison-tool hidden">
+        <div class="comparison-header">
+            <h3>Business Comparison</h3>
+            <button id="closeComparison" class="close-button">×</button>
+        </div>
+        <div class="comparison-content">
+            <div class="selected-businesses" id="selectedBusinesses">
+                <!-- Selected businesses will be listed here -->
+            </div>
+            <div class="comparison-actions">
+                <button id="compareButton" class="compare-button" disabled>
+                    Compare Businesses (<span id="compareCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this modal before the closing body tag -->
+    <div id="comparisonModal" class="modal hidden">
+        <div class="modal-content comparison-modal">
+            <div class="modal-header">
+                <h3>Business Comparison</h3>
+                <button class="close-button" id="closeComparisonModal">×</button>
+            </div>
+            <div class="comparison-grid" id="comparisonGrid">
+                <!-- Comparison content will be generated here -->
+            </div>
+            <div class="ai-analysis">
+                <h4>AI Analysis</h4>
+                <div id="aiAnalysis" class="analysis-content">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this after the search container in the sidebar -->
+    <div class="saved-places">
+        <div class="saved-header">
+            <h3>Saved Places</h3>
+            <button id="createListBtn" class="create-list-button">
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                New List
+            </button>
+        </div>
+        <div id="savedLists" class="saved-lists">
+            <!-- Lists will be populated here -->
+        </div>
+    </div>
+
+    <!-- Add this modal before the closing body tag -->
+    <div id="listModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="listModalTitle">Create New List</h3>
+                <button class="close-button" id="closeListModal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="listName">List Name</label>
+                    <input type="text" id="listName" placeholder="e.g., Date Night Spots">
+                </div>
+                <div class="form-group">
+                    <label for="listDescription">Description (optional)</label>
+                    <textarea id="listDescription" placeholder="Add a description for your list"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="listPrivate">
+                        Make this list private
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveList" class="primary-button">Create List</button>
+                <button id="cancelList" class="secondary-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this after the saved places section -->
+    <div class="notification-settings">
+        <div class="settings-header">
+            <h3>Notification Settings</h3>
+            <button id="editNotificationSettings" class="edit-settings-button">
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+                Edit Settings
+            </button>
+        </div>
+        <div class="notification-summary" id="notificationSummary">
+            <!-- Summary of current notification settings -->
+        </div>
+    </div>
+
+    <!-- Add this modal before the closing body tag -->
+    <div id="notificationSettingsModal" class="modal hidden">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h3>Notification Preferences</h3>
+                <button class="close-button" id="closeNotificationSettings">×</button>
+            </div>
+            <div class="settings-content">
+                <div class="settings-section">
+                    <h4>General Notifications</h4>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableNotifications">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="setting-info">
+                            <span>Enable All Notifications</span>
+                            <small>Receive all types of notifications</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>Alert Types</h4>
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="newReviewsAlert">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="setting-info">
+                            <span>New Reviews</span>
+                            <small>Get notified when saved businesses receive new reviews</small>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sentimentAlert">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="setting-info">
+                            <span>Sentiment Changes</span>
+                            <small>Alert when sentiment score changes significantly</small>
+                            <div class="threshold-setting">
+                                <label>Threshold:</label>
+                                <select id="sentimentThreshold">
+                                    <option value="0.05">5%</option>
+                                    <option value="0.10">10%</option>
+                                    <option value="0.15">15%</option>
+                                    <option value="0.20">20%</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="nearbyAlert">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="setting-info">
+                            <span>Nearby Promotions</span>
+                            <small>Notifications about deals and events nearby</small>
+                            <div class="threshold-setting">
+                                <label>Range:</label>
+                                <select id="proximityRange">
+                                    <option value="1000">1 km</option>
+                                    <option value="2000">2 km</option>
+                                    <option value="5000">5 km</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4>Business-Specific Alerts</h4>
+                    <div id="businessAlerts">
+                        <!-- Business-specific alert settings will be populated here -->
+                    </div>
+                    <button id="addBusinessAlert" class="add-business-button">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        Add Business Alert
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveNotificationSettings" class="primary-button">Save Settings</button>
+                <button id="cancelNotificationSettings" class="secondary-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- MarkerCluster JavaScript -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <!-- Leaflet.heat JavaScript -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Application Code -->
+    <script src="app.js"></script>
+</body>
+</html> 
